@@ -9,7 +9,8 @@
 		"prisma:generate": "prisma generate",
 		"prisma:push": "prisma db push",
 		"prisma:studio": "prisma studio",
-		"build": "prisma generate"
+		"build": "prisma generate",
+		"postinstall": "prisma generate"
 	},
 	"keywords": [],
 	"author": "",
