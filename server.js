@@ -11,7 +11,7 @@ import { protect } from "./middlewares/protect.js";
 
 const app = express();
 app.use(cors({
-    origin: "http://localhost:5173", // your Vite frontend
+    origin: "https://booky-client-js.vercel.app", // your Vite frontend
     credentials: true,
   }));
 app.use(express.json());
