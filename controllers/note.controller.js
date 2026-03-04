@@ -1,4 +1,5 @@
 import { prisma } from "../config/prisma.js";
+import { formatZodError } from "../config/zodFormat.js";
 import { bookIdSchema } from "../validation/book.validate.js";
 import {
 	noteIdSchema,
@@ -9,23 +10,48 @@ import {
 /* ---------------- GET ALL NOTES ---------------- */
 export const getNotes = async (req, res) => {
 	try {
+		const page = Math.max(1, parseInt(req.query.page) || 1);
+		const limit = Math.max(10, parseInt(req.query.limit) || 10);
+		const offset = (page - 1) * limit;
+
 		const { userId } = await req.auth();
 
-		const notes = await prisma.note.findMany({
-			where: {
-				user: {
-					clerkId: userId,
+		const [notes, count] = await Promise.all([
+			await prisma.note.findMany({
+				where: {
+					user: { clerkId: userId },
 				},
-			},
-			orderBy: { createdAt: "desc" },
-		});
+				orderBy: { createdAt: "desc" },
+				skip: offset,
+				take: limit,
+				include: {
+					book: {
+						select: {
+							title: true, // only fetch book title
+						},
+					},
+				},
+			}),
 
-		return res.status(200).json(notes);
-	} catch {
+			await prisma.note.count(),
+		]);
+
+		// Optional: map to include bookName directly
+		const notesWithBookName = notes.map((note) => ({
+			...note,
+			bookName: note.book?.title || null,
+			book: undefined, // remove nested book object if you want only name
+		}));
+
+		return res.status(200).json({
+			notes: notesWithBookName,
+			count,
+		});
+	} catch (error) {
+		console.log(error);
 		return res.status(500).json({ error: "Failed to fetch notes" });
 	}
 };
-
 /* ---------------- GET NOTES BY BOOK ID ---------------- */
 export const getNotesByBookId = async (req, res) => {
 	try {
@@ -34,24 +60,45 @@ export const getNotesByBookId = async (req, res) => {
 		const validate = bookIdSchema.safeParse(req.params);
 		if (!validate.success) {
 			return res.status(400).json({
-				error: validate.error.flatten(),
+				error: formatZodError(validate.error),
 			});
 		}
 
-		const { id: bookId } = validate.data;
+		const { bookId } = validate.data;
+		const page = Math.max(1, parseInt(req.query.page) || 1);
+		const limit = Math.max(1, parseInt(req.query.limit) || 10);
+		const skip = (page - 1) * limit;
 
-		const notes = await prisma.note.findMany({
-			where: {
-				user: {
-					clerkId: userId,
+		const [notes, count] = await Promise.all([
+			prisma.note.findMany({
+				where: {
+					user: { clerkId: userId },
+					book: {
+						id: bookId
+					},
 				},
-				bookId,
-			},
-			orderBy: { createdAt: "desc" },
-		});
+				include: {
+					book: {
+						select: {
+							title: true,
+						},
+					},
+				},
+				orderBy: { createdAt: "desc" },
+				skip,
+				take: limit,
+			}),
+			prisma.note.count({
+				where: {
+					user: { clerkId: userId },
+					bookId,
+				},
+			}),
+		]);
 
-		return res.status(200).json(notes);
-	} catch {
+		return res.status(200).json({ notes, count });
+	} catch (error) {
+		console.log(error);
 		return res.status(500).json({ error: "Failed to fetch notes" });
 	}
 };
@@ -64,7 +111,7 @@ export const createNote = async (req, res) => {
 
 		if (!validate.success) {
 			return res.status(400).json({
-				error: validate.error.flatten(),
+				error: formatZodError(validate.error),
 			});
 		}
 
@@ -114,20 +161,19 @@ export const updateNote = async (req, res) => {
 		const paramValidate = noteIdSchema.safeParse(req.params);
 		if (!paramValidate.success) {
 			return res.status(400).json({
-				error: paramValidate.error.flatten(),
+				error: formatZodError(paramValidate.error),
 			});
 		}
 
 		const bodyValidate = noteUpdateSchema.safeParse(req.body);
 		if (!bodyValidate.success) {
 			return res.status(400).json({
-				error: bodyValidate.error.flatten(),
+				error: formatZodError(bodyValidate.error),
 			});
 		}
 
 		const { id } = paramValidate.data;
 		const data = bodyValidate.data;
-
 		const note = await prisma.note.findFirst({
 			where: {
 				id,
@@ -143,11 +189,16 @@ export const updateNote = async (req, res) => {
 
 		const updatedNote = await prisma.note.update({
 			where: { id },
-			data,
+			data: {
+				title: data.title,
+				content: data.content,
+				page: data.page
+			},
 		});
 
 		return res.status(200).json(updatedNote);
-	} catch {
+	} catch (error) {
+		console.log(error);
 		return res.status(500).json({ error: "Failed to update note" });
 	}
 };
@@ -160,7 +211,7 @@ export const deleteNote = async (req, res) => {
 		const validate = noteIdSchema.safeParse(req.params);
 		if (!validate.success) {
 			return res.status(400).json({
-				error: validate.error.flatten(),
+				error: formatZodError(validate.error),
 			});
 		}
 
@@ -186,7 +237,8 @@ export const deleteNote = async (req, res) => {
 		return res.status(200).json({
 			message: "Note deleted successfully",
 		});
-	} catch {
+	} catch (error) {
+		console.log(error);
 		return res.status(500).json({ error: "Failed to delete note" });
 	}
 };

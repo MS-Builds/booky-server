@@ -1,7 +1,11 @@
 import * as z from "zod";
 
+const mongoIdSchema = z
+	.string()
+	.regex(/^[a-f\d]{24}$/i, "Invalid MongoDB ObjectId");
+
 export const noteIdSchema = z.object({
-	id: z.string().uuid("Note ID must be a valid UUID"),
+	id: mongoIdSchema,
 });
 
 export const noteSchema = z.object({
@@ -9,14 +13,17 @@ export const noteSchema = z.object({
 
 	content: z.string().min(1, "Content is required"),
 
-	bookId: z.string().uuid("Book ID must be a valid UUID"),
+	bookId: mongoIdSchema,
 
-	color: z.hex("Invalid color hex code").optional(),
+	color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Invalid color hex code").optional(),
 
 	pin: z.boolean().optional(),
 });
 
-export const noteUpdateSchema = noteSchema.partial().extend({
-	id: z.string().uuid("Note ID must be a valid UUID"),
-	title: z.string().optional(),
+export const noteUpdateSchema = noteSchema.omit({ bookId: true }).partial().extend({
+	title: z.string().min(1, "Title is required").optional(),
+	content: z.string().min(1, "Content is required").optional(),
+	page: z.number().int().nonnegative().optional(),
+	color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Invalid color hex code").optional(),
+	pin: z.boolean().optional(),
 });

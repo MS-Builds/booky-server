@@ -13,7 +13,7 @@ const router = Router();
 router.get("/", getNotes);
 
 // GET notes by book ID
-router.get("/book/:id", getNotesByBookId);
+router.get("/book/:bookId", getNotesByBookId);
 
 // CREATE note
 router.post("/", createNote);

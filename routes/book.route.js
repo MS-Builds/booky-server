@@ -13,13 +13,13 @@ const router = Router();
 router.get("/", getBooks);
 
 // GET single book
-router.get("/:id", getBookById);
+router.get("/:bookId", getBookById);
 
 // CREATE book
 router.post("/", createBook);
 
 // UPDATE book
-router.patch("/", updateBook);
+router.patch("/:bookId", updateBook);
 
 // DELETE books (bulk delete)
 router.delete("/", deleteBook);
