@@ -33,7 +33,13 @@ export const getNotes = async (req, res) => {
 				},
 			}),
 
-			await prisma.note.count(),
+			await prisma.note.count({
+				where:{
+					user:{
+						clerkId:userId,
+					}
+				}
+			}),
 		]);
 
 		// Optional: map to include bookName directly
